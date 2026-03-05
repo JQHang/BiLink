@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joinminer"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "pyyaml",
+    "scikit-learn",
+    "scipy",
+    "tqdm",
+    "torch>=2.1.0",
+    "pyspark>=3.4.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["joinminer*"]

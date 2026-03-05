@@ -1,0 +1,564 @@
+# OpenAlex Element Configuration (Example Cluster)
+# Configuration for example cluster with HDFS storage
+# See docs/data_structures/1_element_tables.md for format details
+
+# Context table default configuration
+context_table:
+  dir: hdfs:///user/example/bilink/openalex/context_table
+
+# Element table default configuration
+element_table:
+  dir: hdfs:///user/example/bilink/openalex/element_tables
+  partition_columns: [date]
+
+# Required partition configurations
+partition_configs:
+  - date_partitions
+
+# Element table build configurations
+elements:
+  # ========================================
+  # Node Element Tables
+  # ========================================
+
+  # ========================================
+  # Work Element
+  # ========================================
+  work:
+    element_id: [work_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      # ============================================================
+      # Source 1: Basic work features
+      # ============================================================
+      - name: basic_features
+        context_mapping:
+          type: time_window
+          context_table: works_basic
+          id_columns: [work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, date]
+            mapping: drop
+            functions:
+              - first
+
+      # ============================================================
+      # Source 2: Outgoing citation features
+      # ============================================================
+      - name: citation_outgoing
+        context_mapping:
+          type: time_window
+          context_table: works_citation
+          id_columns: [work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, date]
+            mapping: drop
+            group_count: true
+
+      # ============================================================
+      # Source 3: Received citations with pivot by time window
+      # Note: Uses cited_work_id which maps to work_id in aggregation
+      # ============================================================
+      - name: citation_received_pivot
+        context_mapping:
+          type: time_window
+          context_table: works_citation
+          id_columns:
+            - original: cited_work_id
+              alias: work_id
+            - date
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -120
+              count: 40
+              length: 3
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, date]
+            mapping: pivot
+            group_count: true
+
+      # ============================================================
+      # Source 4: Author aggregation features
+      # ============================================================
+      - name: author_aggregation
+        context_mapping:
+          type: time_window
+          context_table: works_author
+          id_columns: [work_id, author_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, date]
+            mapping: drop
+            group_count: true
+            functions:
+              - sum
+
+      # ============================================================
+      # Source 5: Institution diversity features
+      # ============================================================
+      - name: institution_diversity
+        context_mapping:
+          type: time_window
+          context_table: works_institution
+          id_columns: [work_id, institution_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, date]
+            mapping: drop
+            group_count: true
+
+  # ========================================
+  # Author Element
+  # ========================================
+  author:
+    element_id: [author_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      # ============================================================
+      # Source 1: Publication features with time window pivot
+      # ============================================================
+      - name: publication_features
+        context_mapping:
+          type: time_window
+          context_table: works_author
+          id_columns: [author_id, work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [author_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - sum
+
+      # ============================================================
+      # Source 2: Institution collaboration features
+      # Multi-stage aggregation with time window pivot
+      # ============================================================
+      - name: institution_collaboration_features
+        context_mapping:
+          type: time_window
+          context_table: author_institution
+          id_columns: [author_id, institution_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          # Stage 1: Aggregate by author-institution-date-window
+          - name: by_author_institution
+            group_by: [author_id, institution_id, date]
+            mapping: keep
+            group_count: true
+            functions:
+              - sum
+
+          # Stage 2: Aggregate to author level and pivot time windows
+          - name: by_author
+            group_by: [author_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - mean
+              - max
+              - min
+
+  # ========================================
+  # Institution Element
+  # ========================================
+  institution:
+    element_id: [institution_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      # ============================================================
+      # Source 1: Publication features
+      # ============================================================
+      - name: publication_features
+        context_mapping:
+          type: time_window
+          context_table: works_institution
+          id_columns: [institution_id, work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [institution_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - sum
+
+      # ============================================================
+      # Source 2: Author diversity features
+      # Multi-stage aggregation with time window pivot
+      # ============================================================
+      - name: author_diversity_features
+        context_mapping:
+          type: time_window
+          context_table: author_institution
+          id_columns: [author_id, institution_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          # Stage 1: Aggregate by author-institution-date-window
+          - name: by_author_institution
+            group_by: [author_id, institution_id, date]
+            mapping: keep
+            group_count: true
+            functions:
+              - sum
+
+          # Stage 2: Aggregate to institution level and pivot time windows
+          - name: by_institution
+            group_by: [institution_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - mean
+              - max
+              - min
+
+  # ========================================
+  # Source Element
+  # ========================================
+  source:
+    element_id: [source_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: publication_features_past_15
+        context_mapping:
+          type: time_window
+          context_table: works_source
+          id_columns: [source_id, work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -180
+              count: 15
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [source_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - sum
+
+      - name: publication_features_past_15_to_30
+        context_mapping:
+          type: time_window
+          context_table: works_source
+          id_columns: [source_id, work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 15
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [source_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - sum
+
+  # ========================================
+  # Topic Element
+  # ========================================
+  topic:
+    element_id: [topic_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: topic_features
+        context_mapping:
+          type: time_window
+          context_table: works_topic
+          id_columns: [topic_id, work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [topic_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - mean
+              - max
+              - min
+              - stddev
+
+  # ========================================
+  # Edge Element Tables
+  # ========================================
+
+  # ========================================
+  # Work-Work Citation Edge
+  # ========================================
+  work___linked_with___work:
+    element_id: [work_id, cited_work_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: citation_edge
+        context_mapping:
+          type: time_window
+          context_table: works_citation
+          id_columns: [work_id, cited_work_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, cited_work_id, date]
+            mapping: drop
+
+  # ========================================
+  # Work-Author Edge
+  # ========================================
+  work___linked_with___author:
+    element_id: [work_id, author_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: authorship_edge
+        context_mapping:
+          type: time_window
+          context_table: works_author
+          id_columns: [work_id, author_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, author_id, date]
+            mapping: drop
+            group_count: true
+            functions:
+              - first
+
+  # ========================================
+  # Work-Institution Edge
+  # ========================================
+  work___linked_with___institution:
+    element_id: [work_id, institution_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: work_institution_edge
+        context_mapping:
+          type: time_window
+          context_table: works_institution
+          id_columns: [work_id, institution_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, institution_id, date]
+            mapping: drop
+            group_count: true
+            functions:
+              - first
+
+  # ========================================
+  # Work-Source Edge
+  # ========================================
+  work___linked_with___source:
+    element_id: [work_id, source_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: work_source_edge
+        context_mapping:
+          type: time_window
+          context_table: works_source
+          id_columns: [work_id, source_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, source_id, date]
+            mapping: drop
+            group_count: true
+            functions:
+              - first
+
+  # ========================================
+  # Work-Topic Edge
+  # ========================================
+  work___linked_with___topic:
+    element_id: [work_id, topic_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: work_topic_edge
+        context_mapping:
+          type: time_window
+          context_table: works_topic
+          id_columns: [work_id, topic_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 1
+              length: 360
+
+        aggregation_pipeline:
+          - group_by: [work_id, topic_id, date]
+            mapping: drop
+            group_count: true
+            functions:
+              - first
+
+  # ========================================
+  # Author-Institution Edge
+  # ========================================
+  author___linked_with___institution:
+    element_id: [author_id, institution_id, date]
+    partition_spec: date_partitions
+
+    sources:
+      - name: author_institution_edge
+        context_mapping:
+          type: time_window
+          context_table: author_institution
+          id_columns: [author_id, institution_id, date]
+
+          # Time window configuration
+          time_column: date
+          time_format: yyyy-MM-dd
+          windows:
+            - unit: month
+              offset: -360
+              count: 30
+              length: 12
+
+        aggregation_pipeline:
+          - group_by: [author_id, institution_id, date]
+            mapping: pivot
+            group_count: true
+            functions:
+              - sum

@@ -1,0 +1,23 @@
+name: bilink
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.9
+  - sqlite
+  - ipykernel
+  - matplotlib
+  - numpy
+  - pandas
+  - pyarrow
+  - pyyaml
+  - scikit-learn
+  - scipy
+  - tqdm
+  - pyspark=3.4.1
+  - pytorch=2.1.0
+  - torchvision=0.16.0
+  - torchaudio=2.1.0
+  - pip
+  - pip:
+    - -e .

@@ -1,0 +1,93 @@
+# OpenAlex Graph Configuration (Example Cluster)
+#
+# This configuration defines a heterogeneous graph structure for the OpenAlex dataset
+# stored on HDFS in an example cluster environment.
+#
+# Graph Structure:
+# - 5 node types: work, author, institution, source, topic
+# - 6 edge types: work citations, work-author, work-institution, work-source,
+#                 work-topic, author-institution
+#
+# All element tables are stored in parquet format with date partitioning.
+
+# Global settings
+element_table_dir: hdfs:///user/example/bilink/openalex/element_tables
+partition_columns: [date]
+
+# Node types
+nodes:
+  work:
+    table_name: work
+    id_column: work_id
+
+  author:
+    table_name: author
+    id_column: author_id
+
+  institution:
+    table_name: institution
+    id_column: institution_id
+
+  source:
+    table_name: source
+    id_column: source_id
+
+  topic:
+    table_name: topic
+    id_column: topic_id
+
+# Edge types
+edges:
+  work_citation:
+    table_name: work___linked_with___work
+    u_node:
+      type: work
+      id_column: work_id
+    v_node:
+      type: work
+      id_column: cited_work_id
+
+  work_author:
+    table_name: work___linked_with___author
+    u_node:
+      type: work
+      id_column: work_id
+    v_node:
+      type: author
+      id_column: author_id
+
+  work_institution:
+    table_name: work___linked_with___institution
+    u_node:
+      type: work
+      id_column: work_id
+    v_node:
+      type: institution
+      id_column: institution_id
+
+  work_source:
+    table_name: work___linked_with___source
+    u_node:
+      type: work
+      id_column: work_id
+    v_node:
+      type: source
+      id_column: source_id
+
+  work_topic:
+    table_name: work___linked_with___topic
+    u_node:
+      type: work
+      id_column: work_id
+    v_node:
+      type: topic
+      id_column: topic_id
+
+  author_institution:
+    table_name: author___linked_with___institution
+    u_node:
+      type: author
+      id_column: author_id
+    v_node:
+      type: institution
+      id_column: institution_id

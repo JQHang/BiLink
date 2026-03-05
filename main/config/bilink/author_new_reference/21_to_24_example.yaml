@@ -1,0 +1,99 @@
+################################################################################
+# BiLink Configuration: Author Citation Prediction (2021-2024, HDFS)
+################################################################################
+
+# Reference to graph configuration
+graph_config: "main/config/graph/openalex_example.yaml"
+
+################################################################################
+# TASK CONFIGURATION
+################################################################################
+
+# Task data directory (prepared by prepare_task_data.py)
+task_data_dir: "hdfs:///user/example/bilink/openalex/task_table/author_new_reference/21_to_24"
+
+# Target edge definition
+target_edge:
+  u_node_type: "author"
+  v_node_type: "work"
+
+  # Column names in known_target_edges table
+  u_node_id_column: "author_id"
+  v_node_id_column: "cited_work_id"
+
+  # Temporal data splits
+  # Note: target_dates are automatically derived as January 1st of all years
+  # covered by these ranges: [2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01]
+  sample_type_to_date_range:
+    train: [2021-01-01, 2023-01-01]
+    valid: [2023-01-01, 2023-07-01]
+    test: [2023-07-01, 2024-01-01]
+    infer: [2024-01-01, 2025-01-01]
+
+################################################################################
+# BIPATH DISCOVERY
+################################################################################
+
+bipath_discovery:
+  # Global parameters
+  join_edge_path: "hdfs:///user/example/bilink/openalex/join_edge/6_edge_20_instance"
+  max_instance: 20  # Global limit: join edge sampling + all discovery stages
+
+  # Path exploration
+  exploration:
+    max_target_pairs: 200000  # Maximum number of target pairs for search
+    seed_nodes:
+      neg_ratio: 5  # Number of random nodes per target node
+      u_node:
+        path: "hdfs:///user/example/bilink/openalex/task_table/author_new_reference/21_to_24/candidate_authors"
+        id_column: "author_id"
+      v_node:
+        path: "hdfs:///user/example/bilink/openalex/element_tables/work"
+        id_column: "work_id"
+    max_hop: 6
+
+  readable_matched_bipath: "data/openalex/task_table/author_new_reference/21_to_24/readable_matched_bipaths.csv"
+
+  # Reliable path selection
+  selection:
+    top_k: 5
+
+    labeled_samples:
+      max_positive:
+        train: 300000
+        valid: 100000
+        test: 100000
+
+    unlabeled_samples:
+      batch_size:
+        u_node: 10000000  # 10M authors per batch
+        v_node: 50000000  # 50M works per batch
+
+  collection:
+    top_k: 150
+    pair_batch: 3000000
+
+################################################################################
+# MODEL TRAINING
+################################################################################
+
+# Dataloader
+dataloader:
+  dataset_dir: "data/openalex/task_table/author_new_reference/21_to_24/dataset"
+
+  num_workers: 8
+
+  group_len: 128
+  max_path:
+    forward: 32
+    backward: 32
+    bipath: 16
+
+  train:
+    neg_ratio: 10
+    batch_size: 128
+    epoch_size: 3000000
+
+  eval:
+    neg_ratio: 10
+    batch_size: 256

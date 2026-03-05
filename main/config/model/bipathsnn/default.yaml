@@ -1,0 +1,55 @@
+################################################################################
+# BiPathsNN Model Configuration
+################################################################################
+
+model:
+  dropout: 0.2
+  feat_proj:
+    dim: 128
+  path_group_encoder:
+    nhead: 2
+    num_layers: 2
+  pair_encoder:
+    nhead: 2
+    num_layers: 2
+
+################################################################################
+# DataLoader Configuration
+################################################################################
+
+dataloader:
+  path_group_len: 128
+  max_path_group:
+    forward: 32
+    backward: 32
+    bipath: 16
+
+  train:
+    batch_size: 512
+    epoch_size: 2200000
+    num_workers: 8
+    prefetch_factor: 2
+
+  eval:
+    batch_size: 512
+    sample_limit: -1
+    num_workers: 8
+    prefetch_factor: 2
+
+  infer:
+    batch_size: 512
+    num_workers: 8
+    prefetch_factor: 2
+    pred_batch: 3000000
+
+################################################################################
+# Training Configuration
+################################################################################
+
+training:
+  epochs: 100
+  patience: 20
+
+optimization:
+  learning_rate: 0.0005
+  weight_decay: 0.01

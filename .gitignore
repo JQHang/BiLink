@@ -1,0 +1,20 @@
+# Byte-compiled
+__pycache__/
+
+# Packaging
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Mac system file
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Old code - completely ignored, being replaced by refactored version
+_bak
+
+# Data directory
+data
